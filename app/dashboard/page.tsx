@@ -25,9 +25,13 @@ export default async function Dashboard() {
   let initialAccounts: PatrimonyAccount[];
 
   if (rows.length === 0) {
-    // Premier accès : on seed les comptes démo en base
+    // Premier accès : on seed les comptes démo en base avec des IDs uniques par utilisateur
+    const seeded = SEED_ACCOUNTS.map((acc, i) => ({
+      ...acc,
+      id: `${userId}-${acc.id}`,
+    }));
     await db.insert(patrimonyAccount).values(
-      SEED_ACCOUNTS.map((acc, i) => ({
+      seeded.map((acc, i) => ({
         id: acc.id,
         userId,
         name: acc.name,
@@ -41,7 +45,7 @@ export default async function Dashboard() {
         updatedAt: new Date(),
       }))
     );
-    initialAccounts = SEED_ACCOUNTS;
+    initialAccounts = seeded;
   } else {
     initialAccounts = rows.map((r) => ({
       id: r.id,
