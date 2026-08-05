@@ -112,6 +112,7 @@ export function AddAccountModal({
       category: finalCategory,
       logo: logo ?? { generic: true },
       history: { [key]: Number(value) },
+      deposits: {},
       monthly: Number(monthly),
       rate: 5,
     });

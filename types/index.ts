@@ -11,6 +11,8 @@ export interface PatrimonyAccount {
   category: string;
   // Historique mensuel : { "YYYY-MM": valeur } — format libre, n'importe quel mois/année
   history: Record<string, number>;
+  // Capital investi chaque mois : { "YYYY-MM": montant } — soustrait du gain pour le calcul de perf nette
+  deposits: Record<string, number>;
   monthly: number;
   rate: number;
   logo?: LogoInfo | null;
@@ -40,6 +42,7 @@ export interface MonthlyTotal {
   key: string;
   label: string;
   total: number;
+  totalDeposits: number;
   hasData: boolean;
 }
 

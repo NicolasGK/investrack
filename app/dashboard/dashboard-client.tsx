@@ -51,11 +51,16 @@ export function DashboardClient({ initialAccounts, initialCategories, userName }
         const values = accounts
           .map((a) => a.history[key])
           .filter((v): v is number => v !== null && v !== undefined);
+        const totalDeposits = accounts.reduce(
+          (s, a) => s + ((a.deposits || {})[key] ?? 0),
+          0
+        );
         return {
           i,
           key,
           label: monthKeyToLabel(key),
           total: values.reduce((s, v) => s + v, 0),
+          totalDeposits,
           hasData: values.length > 0,
         };
       });

@@ -9,7 +9,8 @@ import { fmt, fmtPct, fmtDeltaEur } from "@/lib/utils";
 import {
   accountEntries, currentValue, monthlyPct,
   getAccountAccent, getChartAccent,
-  periodWindow, periodInterestPct,
+  periodWindow,
+  periodNetPct, periodNetEur,
   ordinalToLabel, PERIOD_LABELS,
 } from "@/constants";
 import { PeriodSelector } from "@/components/ui/period-selector";
@@ -32,7 +33,9 @@ export function AccountDetailTab({ account, updateAccount, onBack }: AccountDeta
   const accent = getAccountAccent(account);
   const chartAccent = getChartAccent(accent);
 
-  const points = accountEntries(account).map((e) => ({ i: e.i, v: e.v }));
+  const entries = accountEntries(account);
+  const deposits = account.deposits || {};
+  const points = entries.map((e) => ({ i: e.i, v: e.v }));
   const win = periodWindow(points, period);
   const chartData = win.points.map((p) => ({
     label: ordinalToLabel(p.i),
@@ -40,8 +43,8 @@ export function AccountDetailTab({ account, updateAccount, onBack }: AccountDeta
   }));
 
   const cur = currentValue(account);
-  const interestPct = periodInterestPct(win.baseline, win.current);
-  const interestEur = (win.current?.v ?? 0) - (win.baseline?.v ?? 0);
+  const interestPct = periodNetPct(entries, deposits, win.baseline, win.current);
+  const interestEur = periodNetEur(entries, deposits, win.baseline, win.current);
   const monthPct = monthlyPct(account);
 
   return (
@@ -147,7 +150,7 @@ export function AccountDetailTab({ account, updateAccount, onBack }: AccountDeta
             {unit === "pct" ? fmtPct(interestPct) : fmtDeltaEur(interestEur)}
           </div>
           <div className="mt-0.5 text-[11px] text-neutral-400 leading-tight">
-            ({fmt(win.current?.v ?? 0)} − {fmt(win.baseline?.v ?? 0)}) ÷ {fmt(win.baseline?.v ?? 0)} × 100
+            gain net (hors apports) ÷ base × 100
           </div>
         </div>
         <div className="rounded-2xl bg-white p-3.5">

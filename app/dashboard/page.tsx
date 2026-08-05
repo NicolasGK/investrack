@@ -28,6 +28,7 @@ export default async function Dashboard() {
     name: r.name,
     category: r.category,
     history: migrateHistory(r.history),
+    deposits: (r.deposits as Record<string, number>) || {},
     monthly: r.monthly,
     rate: r.rate,
     logo: r.logo as PatrimonyAccount["logo"],

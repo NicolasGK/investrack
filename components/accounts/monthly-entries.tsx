@@ -5,6 +5,7 @@ import { Plus, Check, X, Pencil, Trash2 } from "lucide-react";
 import {
   accountEntries, monthKey, monthKeyToOrdinal, ordinalToLabel,
   MONTH_FULL, CURRENT_YEAR, CURRENT_MONTH,
+  periodNetPct,
 } from "@/constants";
 
 const YEAR_OPTIONS = Array.from(
@@ -24,19 +25,29 @@ export function MonthlyEntries({ account, updateAccount }: MonthlyEntriesProps) 
   const [addMonth, setAddMonth] = useState(CURRENT_MONTH);
   const [addYear, setAddYear] = useState(CURRENT_YEAR);
   const [addingValue, setAddingValue] = useState("");
+  const [addingDeposit, setAddingDeposit] = useState("");
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [editDeposit, setEditDeposit] = useState("");
 
   const filled = accountEntries(account);
+  const deposits = account.deposits || {};
 
-  const setValueAtKey = (key: string, val: number | null) => {
+  const setValueAtKey = (key: string, val: number | null, deposit?: number | null) => {
     const h = { ...account.history };
+    const d = { ...deposits };
     if (val === null) {
       delete h[key];
+      delete d[key];
     } else {
       h[key] = val;
+      if (deposit != null && deposit > 0) {
+        d[key] = deposit;
+      } else {
+        delete d[key];
+      }
     }
-    updateAccount(account.id, { history: h });
+    updateAccount(account.id, { history: h, deposits: d });
   };
 
   const openAdd = () => {
@@ -62,14 +73,26 @@ export function MonthlyEntries({ account, updateAccount }: MonthlyEntriesProps) 
     <div>
       <div className="text-xs font-semibold text-neutral-500 mb-2">Historique mensuel</div>
       <div className="rounded-xl bg-neutral-50 divide-y divide-neutral-100">
+        {/* En-tête colonnes */}
+        <div className="flex items-center gap-2 px-3 py-1.5">
+          <span className="text-[10px] text-neutral-400 w-14 shrink-0">Mois</span>
+          <span className="flex-1 text-[10px] text-neutral-400 text-right">Valeur</span>
+          <span className="text-[10px] text-neutral-400 flex-1 text-right shrink-0">Investi</span>
+          <span className="text-[10px] text-neutral-400 w-14 text-right shrink-0">Perf nette</span>
+          <span className="w-8 shrink-0" />
+        </div>
+
         {filled.length === 0 && (
           <div className="px-3 py-3 text-xs text-neutral-400">
             Aucune saisie pour l&apos;instant
           </div>
         )}
         {filled.map((e, idx) => {
-          const prev = idx > 0 ? filled[idx - 1].v : null;
-          const pct = prev != null ? ((e.v - prev) / prev) * 100 : null;
+          const prev = idx > 0 ? filled[idx - 1] : null;
+          const netPct = prev != null
+            ? periodNetPct(filled, deposits, { i: prev.i, v: prev.v }, { i: e.i, v: e.v })
+            : null;
+          const deposit = deposits[e.key] ?? 0;
           const isEditing = editingKey === e.key;
           return (
             <div key={e.key} className="flex items-center gap-2 px-3 py-2.5">
@@ -81,13 +104,25 @@ export function MonthlyEntries({ account, updateAccount }: MonthlyEntriesProps) 
                   <input
                     autoFocus
                     type="number"
+                    placeholder="Valeur"
                     value={editValue}
                     onChange={(ev) => setEditValue(ev.target.value)}
-                    className="flex-1 min-w-0 rounded-lg bg-white border border-neutral-300 px-2.5 py-1.5 text-sm font-medium text-neutral-900 outline-none"
+                    className="flex-1 min-w-0 rounded-lg bg-white border border-neutral-300 px-2 py-1.5 text-sm font-medium text-neutral-900 outline-none"
+                  />
+                  <input
+                    type="number"
+                    placeholder="Investi"
+                    value={editDeposit}
+                    onChange={(ev) => setEditDeposit(ev.target.value)}
+                    className="flex-1 min-w-0 rounded-lg bg-white border border-neutral-300 px-2 py-1.5 text-sm font-medium text-neutral-900 outline-none"
                   />
                   <button
                     onClick={() => {
-                      setValueAtKey(e.key, editValue === "" ? null : Number(editValue));
+                      setValueAtKey(
+                        e.key,
+                        editValue === "" ? null : Number(editValue),
+                        editDeposit === "" ? null : Number(editDeposit)
+                      );
                       setEditingKey(null);
                     }}
                     className="text-emerald-600 cursor-pointer"
@@ -103,32 +138,38 @@ export function MonthlyEntries({ account, updateAccount }: MonthlyEntriesProps) 
                   <span className="flex-1 text-sm font-semibold text-neutral-900 text-right">
                     {fmt(e.v)}
                   </span>
+                  <span className="flex-1 text-xs text-neutral-400 text-right shrink-0">
+                    {deposit > 0 ? fmt(deposit) : "—"}
+                  </span>
                   <span
-                    className={`text-[10px] font-semibold w-11 text-right shrink-0 ${
-                      pct === null
+                    className={`text-[10px] font-semibold w-14 text-right shrink-0 ${
+                      netPct === null
                         ? "text-neutral-300"
-                        : pct >= 0
+                        : netPct >= 0
                         ? "text-emerald-600"
                         : "text-red-500"
                     }`}
                   >
-                    {pct === null ? "—" : fmtPct(pct)}
+                    {netPct === null ? "—" : fmtPct(netPct)}
                   </span>
-                  <button
-                    onClick={() => {
-                      setEditingKey(e.key);
-                      setEditValue(String(e.v));
-                    }}
-                    className="text-neutral-400 cursor-pointer"
-                  >
-                    <Pencil size={13} />
-                  </button>
-                  <button
-                    onClick={() => setValueAtKey(e.key, null)}
-                    className="text-red-400 cursor-pointer"
-                  >
-                    <Trash2 size={13} />
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => {
+                        setEditingKey(e.key);
+                        setEditValue(String(e.v));
+                        setEditDeposit(deposit > 0 ? String(deposit) : "");
+                      }}
+                      className="text-neutral-400 cursor-pointer"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                    <button
+                      onClick={() => setValueAtKey(e.key, null)}
+                      className="text-red-400 cursor-pointer"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 </>
               )}
             </div>
@@ -171,17 +212,29 @@ export function MonthlyEntries({ account, updateAccount }: MonthlyEntriesProps) 
             <div className="flex items-center gap-2">
               <input
                 type="number"
-                placeholder="Montant"
+                placeholder="Valeur du compte"
                 value={addingValue}
                 onChange={(e) => setAddingValue(e.target.value)}
                 className="flex-1 min-w-0 rounded-lg bg-white border border-neutral-200 px-2.5 py-1.5 text-sm font-medium text-neutral-900 outline-none"
               />
+              <input
+                type="number"
+                placeholder="Capital investi (€)"
+                value={addingDeposit}
+                onChange={(e) => setAddingDeposit(e.target.value)}
+                className="w-32 min-w-0 rounded-lg bg-white border border-neutral-200 px-2.5 py-1.5 text-sm font-medium text-neutral-900 outline-none"
+              />
               <button
                 onClick={() => {
                   if (addingValue === "") return;
-                  setValueAtKey(targetKey, Number(addingValue));
+                  setValueAtKey(
+                    targetKey,
+                    Number(addingValue),
+                    addingDeposit === "" ? null : Number(addingDeposit)
+                  );
                   setAdding(false);
                   setAddingValue("");
+                  setAddingDeposit("");
                 }}
                 className="text-emerald-600 shrink-0 cursor-pointer"
               >
@@ -191,12 +244,16 @@ export function MonthlyEntries({ account, updateAccount }: MonthlyEntriesProps) 
                 onClick={() => {
                   setAdding(false);
                   setAddingValue("");
+                  setAddingDeposit("");
                 }}
                 className="text-neutral-400 shrink-0 cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
+            <p className="text-[11px] text-neutral-400">
+              Capital investi : montant versé ce mois (ex : 100€ sur Trade Republic). Optionnel.
+            </p>
             {overwriting && (
               <p className="text-[11px] text-amber-600">
                 {ordinalToLabel(monthKeyToOrdinal(targetKey))} a déjà une valeur — elle sera remplacée.

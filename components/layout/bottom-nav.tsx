@@ -18,7 +18,7 @@ const NAV_ITEMS: { id: TabId; label: string; icon: React.ElementType }[] = [
 
 export function BottomNav({ tab, setTab }: BottomNavProps) {
   return (
-    <div className="fixed bottom-0 left-0 right-0 flex justify-center pb-5 pt-2 bg-gradient-to-t from-neutral-100 via-neutral-100 to-transparent">
+    <div className="fixed bottom-0 left-0 right-0 flex justify-center pb-5 pt-2 bg-linear-to-t from-neutral-100 via-neutral-100 to-transparent">
       <div className="w-full max-w-md mx-4 rounded-full bg-white shadow-lg px-2 py-2 flex items-center justify-between">
         {NAV_ITEMS.map((item) => {
           const active = tab === item.id;

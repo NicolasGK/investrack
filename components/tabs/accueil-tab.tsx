@@ -11,7 +11,7 @@ import {
 import { fmt, fmtPct, fmtDeltaEur } from "@/lib/utils";
 import {
   currentValue, monthlyPct, CATEGORY_COLORS, FALLBACK_COLOR, HORIZONS,
-  periodWindow, periodInterestPct, ordinalToLabel, PERIOD_LABELS,
+  periodWindow, ordinalToLabel, PERIOD_LABELS,
 } from "@/constants";
 import { PeriodSelector } from "@/components/ui/period-selector";
 import { UnitToggle } from "@/components/ui/unit-toggle";
@@ -47,8 +47,15 @@ export function AccueilTab({
 
   const totalsPoints = monthlyTotals.map((m) => ({ i: m.i, v: m.total }));
   const win = periodWindow(totalsPoints, period);
-  const evolPct = periodInterestPct(win.baseline, win.current);
-  const evolEur = (win.current?.v ?? 0) - (win.baseline?.v ?? 0);
+  // Déduire tous les apports versés pendant la période pour obtenir la perf nette
+  const depositsInPeriod = monthlyTotals
+    .filter(
+      (m) =>
+        m.i > (win.baseline?.i ?? 0) && m.i <= (win.current?.i ?? 0)
+    )
+    .reduce((s, m) => s + m.totalDeposits, 0);
+  const evolEur = (win.current?.v ?? 0) - (win.baseline?.v ?? 0) - depositsInPeriod;
+  const evolPct = win.baseline?.v ? (evolEur / win.baseline.v) * 100 : 0;
   const chartData = win.points.map((p) => ({
     label: ordinalToLabel(p.i),
     total: Math.round(p.v),

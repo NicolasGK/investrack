@@ -181,10 +181,45 @@ export const previousValue = (a: PatrimonyAccount): number => {
   return e.length > 1 ? e[e.length - 2].v : currentValue(a);
 };
 
-export const monthlyPct = (a: PatrimonyAccount): number => {
+// Variation mensuelle brute (sans déduire les dépôts)
+export const monthlyPctRaw = (a: PatrimonyAccount): number => {
   const cur = currentValue(a);
   const prev = previousValue(a);
   return prev ? ((cur - prev) / prev) * 100 : 0;
+};
+
+// Variation mensuelle nette : déduit le capital investi ce mois
+export const monthlyPct = (a: PatrimonyAccount): number => {
+  const e = accountEntries(a);
+  if (e.length < 2) return 0;
+  const cur = e[e.length - 1];
+  const prev = e[e.length - 2];
+  const deposit = (a.deposits || {})[cur.key] ?? 0;
+  return prev.v ? ((cur.v - prev.v - deposit) / prev.v) * 100 : 0;
+};
+
+// Perf nette sur une période (déduit tous les dépôts entre baseline et current)
+export const periodNetEur = (
+  entries: { key: string; i: number; v: number }[],
+  deposits: Record<string, number>,
+  baseline: { i: number; v: number } | null,
+  current: { i: number; v: number } | null
+): number => {
+  if (!baseline || !current) return 0;
+  const totalDeposits = entries
+    .filter((e) => e.i > baseline.i && e.i <= current.i)
+    .reduce((s, e) => s + ((deposits || {})[e.key] ?? 0), 0);
+  return current.v - baseline.v - totalDeposits;
+};
+
+export const periodNetPct = (
+  entries: { key: string; i: number; v: number }[],
+  deposits: Record<string, number>,
+  baseline: { i: number; v: number } | null,
+  current: { i: number; v: number } | null
+): number => {
+  if (!baseline || !baseline.v) return 0;
+  return (periodNetEur(entries, deposits, baseline, current) / baseline.v) * 100;
 };
 
 // ── Constantes app ────────────────────────────────────────────────────────────
@@ -224,6 +259,7 @@ export const SEED_ACCOUNTS: PatrimonyAccount[] = [
     name: "Trade Republic",
     category: "Investissement",
     history: seedHistory(2025, 12, [4043.82, 4283.16, 4413.49, 4278.23, 4613.44, 5027.57, 5125.58, 5097.87]),
+    deposits: {},
     monthly: 400,
     rate: 7,
     logo: { short: "TR", color: "bg-neutral-900 text-white", domain: "traderepublic.com" },
@@ -233,6 +269,7 @@ export const SEED_ACCOUNTS: PatrimonyAccount[] = [
     name: "Bricks",
     category: "Investissement",
     history: seedHistory(2025, 12, [681.52, 724.96, 768.48, 822.22, 875.85, 929.83, 984.48, 1038.85]),
+    deposits: {},
     monthly: 50,
     rate: 9,
     logo: { short: "BX", color: "bg-orange-500 text-white", domain: "bricks.co" },
@@ -242,6 +279,7 @@ export const SEED_ACCOUNTS: PatrimonyAccount[] = [
     name: "Revolut",
     category: "Épargne",
     history: seedHistory(2025, 12, [390.55, 395.44, 367.53, 356.32, 378.52, 410.22, 392.3, 374.86]),
+    deposits: {},
     monthly: 20,
     rate: 3,
     logo: { short: "RV", color: "bg-sky-500 text-white", domain: "revolut.com" },
@@ -251,6 +289,7 @@ export const SEED_ACCOUNTS: PatrimonyAccount[] = [
     name: "Livret A",
     category: "Livret",
     history: seedHistory(2025, 12, [3022.89, 3107.89, 3223.34, 2877.89, 2420.89, 2865.89, 3015.89, 3115.89]),
+    deposits: {},
     monthly: 100,
     rate: 3,
     logo: { short: "LA", color: "bg-blue-600 text-white" },
