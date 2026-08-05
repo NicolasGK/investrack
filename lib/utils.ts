@@ -8,6 +8,8 @@ export const fmt = (n: number, opts: Intl.NumberFormatOptions = {}) =>
 
 export const fmtPct = (n: number) => `${n > 0 ? "+" : ""}${n.toFixed(1)}%`;
 
+export const fmtDeltaEur = (n: number) => `${n > 0 ? "+" : ""}${fmt(n)}`;
+
 export function futureValue(
   initial: number,
   monthlyContribution: number,

@@ -64,7 +64,7 @@ export const patrimonyAccount = pgTable("patrimony_account", {
   // JSON: { short, color, domain? } ou { generic: true }
   logo: jsonb("logo"),
   // Historique mensuel : tableau de valeurs nullables, une par mois du calendrier
-  history: jsonb("history").notNull().default([]),
+  history: jsonb("history").notNull().default({}),
   monthly: real("monthly").notNull().default(0),
   rate: real("rate").notNull().default(5),
   sortOrder: integer("sort_order").notNull().default(0),

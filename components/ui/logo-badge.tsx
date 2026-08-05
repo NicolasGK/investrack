@@ -21,8 +21,8 @@ export function LogoBadge({ logo, name, size = "h-10 w-10 text-xs" }: LogoBadgeP
   const sources =
     logo?.domain
       ? [
-          `https://logo.clearbit.com/${logo.domain}?size=80`,
           `https://www.google.com/s2/favicons?domain=${logo.domain}&sz=128`,
+          `https://logo.clearbit.com/${logo.domain}?size=80`,
         ]
       : [];
 

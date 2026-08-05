@@ -9,8 +9,8 @@ export interface PatrimonyAccount {
   id: string;
   name: string;
   category: string;
-  // Tableau de (number | null) — un slot par mois du calendrier MONTHS
-  history: (number | null)[];
+  // Historique mensuel : { "YYYY-MM": valeur } — format libre, n'importe quel mois/année
+  history: Record<string, number>;
   monthly: number;
   rate: number;
   logo?: LogoInfo | null;
@@ -32,4 +32,16 @@ export interface CategoryBreakdown {
 export interface ChartPoint {
   label: string;
   total: number;
+  i: number;
 }
+
+export interface MonthlyTotal {
+  i: number;
+  key: string;
+  label: string;
+  total: number;
+  hasData: boolean;
+}
+
+export type PeriodKey = "1M" | "6M" | "YTD" | "1Y" | "All";
+export type UnitKey = "pct" | "eur";

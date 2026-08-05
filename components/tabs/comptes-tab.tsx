@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, ChevronRight } from "lucide-react";
 import { fmt, fmtPct } from "@/lib/utils";
 import { currentValue, monthlyPct, CATEGORY_COLORS, FALLBACK_COLOR } from "@/constants";
 import { AccountAvatar } from "@/components/ui/account-avatar";
@@ -14,7 +14,7 @@ interface ComptesTabProps {
   updateAccount: (id: string, patch: Partial<PatrimonyAccount>) => void;
   deleteAccount: (id: string) => void;
   onAdd: () => void;
-  currentMonthIndex: number;
+  onOpenAccount: (id: string) => void;
 }
 
 export function ComptesTab({
@@ -23,7 +23,7 @@ export function ComptesTab({
   updateAccount,
   deleteAccount,
   onAdd,
-  currentMonthIndex,
+  onOpenAccount,
 }: ComptesTabProps) {
   const [editing, setEditing] = useState<string | null>(null);
 
@@ -63,12 +63,18 @@ export function ComptesTab({
                 const pct = monthlyPct(a);
                 return (
                   <div key={a.id} className="px-4 py-3.5">
-                    <div className="flex items-center justify-between">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => onOpenAccount(a.id)}
+                      onKeyDown={(e) => e.key === "Enter" && onOpenAccount(a.id)}
+                      className="w-full flex items-center justify-between text-left cursor-pointer"
+                    >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <AccountAvatar account={a} size="h-9 w-9 text-[11px]" />
                         <div className="font-semibold text-neutral-900 truncate">{a.name}</div>
                       </div>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2.5">
                         <div className="text-right">
                           <div className="font-semibold text-neutral-900">
                             {fmt(currentValue(a))}
@@ -81,13 +87,23 @@ export function ComptesTab({
                             {fmtPct(pct)} vs mois préc.
                           </div>
                         </div>
+                        <ChevronRight size={15} className="text-neutral-300 shrink-0" />
                         <button
-                          onClick={() => setEditing(editing === a.id ? null : a.id)}
-                          className="text-neutral-400 cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditing(editing === a.id ? null : a.id);
+                          }}
+                          className="text-neutral-400 p-0.5 cursor-pointer"
                         >
                           <Pencil size={15} />
                         </button>
-                        <button onClick={() => deleteAccount(a.id)} className="text-red-400 cursor-pointer">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteAccount(a.id);
+                          }}
+                          className="text-red-400 p-0.5 cursor-pointer"
+                        >
                           <Trash2 size={15} />
                         </button>
                       </div>
@@ -95,7 +111,7 @@ export function ComptesTab({
 
                     {editing === a.id && (
                       <div className="mt-3.5 space-y-3.5">
-                        <label className="block text-xs text-neutral-500 max-w-[160px]">
+                        <label className="block text-xs text-neutral-500 max-w-40">
                           Versement mensuel
                           <input
                             type="number"

@@ -3,16 +3,19 @@
 import { useState, useMemo } from "react";
 import { signOut } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
-import { MONTHS, SEEDED_MONTH_COUNT, currentValue } from "@/constants";
-import { futureValue } from "@/lib/utils";
+import {
+  monthKeyToOrdinal, CURRENT_MONTH_KEY, monthKeyToLabel, currentValue,
+} from "@/constants";
+import { futureValue as fv } from "@/lib/utils";
 import { BottomNav, type TabId } from "@/components/layout/bottom-nav";
 import { AccueilTab } from "@/components/tabs/accueil-tab";
 import { ComptesTab } from "@/components/tabs/comptes-tab";
 import { SimulationTab } from "@/components/tabs/simulation-tab";
 import { ProjectionTab } from "@/components/tabs/projection-tab";
+import { AccountDetailTab } from "@/components/tabs/account-detail-tab";
 import { AddAccountModal } from "@/components/modals/add-account-modal";
 import { saveAccount, removeAccount, saveCategory } from "@/app/actions/accounts";
-import type { PatrimonyAccount } from "@/types";
+import type { PatrimonyAccount, MonthlyTotal } from "@/types";
 
 const TAB_ORDER: TabId[] = ["accueil", "comptes", "simulation", "projection"];
 
@@ -30,34 +33,45 @@ export function DashboardClient({ initialAccounts, initialCategories, userName }
   const [categories, setCategories] = useState<string[]>(initialCategories);
   const [accounts, setAccounts] = useState<PatrimonyAccount[]>(initialAccounts);
   const [showAddAccount, setShowAddAccount] = useState(false);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 
-  const monthlyTotals = useMemo(() => {
-    return MONTHS.map((label, i) => {
-      const values = accounts
-        .map((a) => a.history[i])
-        .filter((v): v is number => v !== null && v !== undefined);
-      return { label, total: values.reduce((s, v) => s + v, 0), hasData: values.length > 0 };
-    }).filter((m) => m.hasData);
+  // ── Calcul de la timeline globale (nouveau format "YYYY-MM") ────────────────
+  const monthlyTotals: MonthlyTotal[] = useMemo(() => {
+    const keys = new Set<string>();
+    accounts.forEach((a) => {
+      Object.keys(a.history || {}).forEach((k) => {
+        const v = a.history[k];
+        if (v !== null && v !== undefined) keys.add(k);
+      });
+    });
+    return Array.from(keys)
+      .sort((a, b) => monthKeyToOrdinal(a) - monthKeyToOrdinal(b))
+      .map((key) => {
+        const i = monthKeyToOrdinal(key);
+        const values = accounts
+          .map((a) => a.history[key])
+          .filter((v): v is number => v !== null && v !== undefined);
+        return {
+          i,
+          key,
+          label: monthKeyToLabel(key),
+          total: values.reduce((s, v) => s + v, 0),
+          hasData: values.length > 0,
+        };
+      });
   }, [accounts]);
 
-  const totalNow = monthlyTotals.length ? monthlyTotals[monthlyTotals.length - 1].total : 0;
-  const totalPrev =
-    monthlyTotals.length > 1 ? monthlyTotals[monthlyTotals.length - 2].total : totalNow;
-  const evolPct = totalPrev ? ((totalNow - totalPrev) / totalPrev) * 100 : 0;
-
-  const chartData = monthlyTotals.map((m) => ({
-    label: m.label,
-    total: Math.round(m.total),
-  }));
-
-  const currentMonthIndex = monthlyTotals.length
-    ? MONTHS.indexOf(monthlyTotals[monthlyTotals.length - 1].label)
-    : SEEDED_MONTH_COUNT - 1;
+  // Dernier mois saisi globalement — utilisé comme valeur par défaut pour les nouveaux comptes
+  const latestMonthKey = monthlyTotals.length
+    ? monthlyTotals[monthlyTotals.length - 1].key
+    : CURRENT_MONTH_KEY;
 
   const projectionAt = (years: number) =>
     accounts.reduce((sum, a) => {
-      return sum + futureValue(currentValue(a), Number(a.monthly) || 0, Number(a.rate) || 0, years);
+      return sum + fv(currentValue(a), Number(a.monthly) || 0, Number(a.rate) || 0, years);
     }, 0);
+
+  // ── Actions ─────────────────────────────────────────────────────────────────
 
   const updateAccount = (id: string, patch: Partial<PatrimonyAccount>) => {
     const acc = accounts.find((a) => a.id === id);
@@ -70,6 +84,7 @@ export function DashboardClient({ initialAccounts, initialCategories, userName }
   const deleteAccount = (id: string) => {
     setAccounts((prev) => prev.filter((a) => a.id !== id));
     removeAccount(id).catch(console.error);
+    if (selectedAccountId === id) setSelectedAccountId(null);
   };
 
   const addAccount = (acc: PatrimonyAccount) => {
@@ -84,6 +99,9 @@ export function DashboardClient({ initialAccounts, initialCategories, userName }
     }
   };
 
+  const openAccount = (id: string) => setSelectedAccountId(id);
+  const backToDashboard = () => setSelectedAccountId(null);
+
   const handleSignOut = async () => {
     await signOut();
     router.push("/sign-in");
@@ -93,56 +111,77 @@ export function DashboardClient({ initialAccounts, initialCategories, userName }
     const currentIdx = TAB_ORDER.indexOf(tab);
     const newIdx = TAB_ORDER.indexOf(newTab);
     setSlideDirection(newIdx > currentIdx ? "right" : "left");
+    setSelectedAccountId(null);
     setTab(newTab);
   };
 
   const slideClass =
     slideDirection === "right" ? "animate-slide-from-right" : "animate-slide-from-left";
 
+  const isDetailOpen = selectedAccountId !== null;
+  const selectedAccount = accounts.find((a) => a.id === selectedAccountId);
+
   return (
     <div className="min-h-screen w-full bg-neutral-100 flex justify-center font-sans overflow-x-hidden">
-      <div key={tab} className={`w-full max-w-md pb-28 px-4 pt-6 ${slideClass}`}>
-        {tab === "accueil" && (
-          <AccueilTab
-            accounts={accounts}
-            categories={categories}
-            totalNow={totalNow}
-            evolPct={evolPct}
-            chartData={chartData}
-            projectionAt={projectionAt}
-            onAdd={() => setShowAddAccount(true)}
-            onSignOut={handleSignOut}
-            userName={userName}
+      <div
+        key={isDetailOpen ? `detail-${selectedAccountId}` : tab}
+        className={`w-full max-w-md pb-28 px-4 pt-6 ${slideClass}`}
+      >
+        {/* ── Détail d'un compte ── */}
+        {isDetailOpen && selectedAccount && (
+          <AccountDetailTab
+            account={selectedAccount}
+            updateAccount={updateAccount}
+            onBack={backToDashboard}
           />
         )}
-        {tab === "comptes" && (
-          <ComptesTab
-            accounts={accounts}
-            categories={categories}
-            updateAccount={updateAccount}
-            deleteAccount={deleteAccount}
-            onAdd={() => setShowAddAccount(true)}
-            currentMonthIndex={currentMonthIndex}
-          />
-        )}
-        {tab === "simulation" && <SimulationTab />}
-        {tab === "projection" && (
-          <ProjectionTab
-            accounts={accounts}
-            categories={categories}
-            updateAccount={updateAccount}
-            projectionAt={projectionAt}
-          />
+
+        {/* ── Onglets principaux (masqués si détail ouvert) ── */}
+        {!isDetailOpen && (
+          <>
+            {tab === "accueil" && (
+              <AccueilTab
+                accounts={accounts}
+                categories={categories}
+                monthlyTotals={monthlyTotals}
+                projectionAt={projectionAt}
+                onAdd={() => setShowAddAccount(true)}
+                onOpenAccount={openAccount}
+                onSignOut={handleSignOut}
+                userName={userName}
+              />
+            )}
+            {tab === "comptes" && (
+              <ComptesTab
+                accounts={accounts}
+                categories={categories}
+                updateAccount={updateAccount}
+                deleteAccount={deleteAccount}
+                onAdd={() => setShowAddAccount(true)}
+                onOpenAccount={openAccount}
+              />
+            )}
+            {tab === "simulation" && <SimulationTab />}
+            {tab === "projection" && (
+              <ProjectionTab
+                accounts={accounts}
+                categories={categories}
+                updateAccount={updateAccount}
+                projectionAt={projectionAt}
+              />
+            )}
+          </>
         )}
       </div>
 
-      <BottomNav tab={tab} setTab={handleSetTab} />
+      {/* Navigation cachée sur la page détail */}
+      {!isDetailOpen && <BottomNav tab={tab} setTab={handleSetTab} />}
 
       {showAddAccount && (
         <AddAccountModal
           categories={categories}
           addCategory={addCategory}
-          currentMonthIndex={currentMonthIndex}
+          latestMonthKey={latestMonthKey}
           onClose={() => setShowAddAccount(false)}
           onSave={(acc) => {
             addAccount(acc);

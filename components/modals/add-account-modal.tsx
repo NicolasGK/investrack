@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { X, Plus, Search, Wallet } from "lucide-react";
-import { PROVIDERS, emptyHistory } from "@/constants";
+import { PROVIDERS, CURRENT_MONTH_KEY } from "@/constants";
 import { normalize } from "@/lib/utils";
 import { LogoBadge } from "@/components/ui/logo-badge";
 import { AccountAvatar } from "@/components/ui/account-avatar";
@@ -51,7 +51,7 @@ function LogoGrid({ search, onSelect }: LogoGridProps) {
 interface AddAccountModalProps {
   categories: string[];
   addCategory: (name: string) => void;
-  currentMonthIndex: number;
+  latestMonthKey: string;
   onClose: () => void;
   onSave: (account: PatrimonyAccount) => void;
 }
@@ -59,7 +59,7 @@ interface AddAccountModalProps {
 export function AddAccountModal({
   categories,
   addCategory,
-  currentMonthIndex,
+  latestMonthKey,
   onClose,
   onSave,
 }: AddAccountModalProps) {
@@ -104,17 +104,14 @@ export function AddAccountModal({
       addCategory(newCategory);
       finalCategory = newCategory;
     }
-    const history = emptyHistory(
-      Array(currentMonthIndex + 1)
-        .fill(null)
-        .map((_, i) => (i === currentMonthIndex ? Number(value) : null))
-    );
+    // Utilise le mois courant global (dernier mois saisi ou mois actuel)
+    const key = latestMonthKey || CURRENT_MONTH_KEY;
     onSave({
       id: `acc-${Date.now()}`,
       name,
       category: finalCategory,
       logo: logo ?? { generic: true },
-      history,
+      history: { [key]: Number(value) },
       monthly: Number(monthly),
       rate: 5,
     });
