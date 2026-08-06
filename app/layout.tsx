@@ -5,7 +5,7 @@ import "./globals.css";
 const geist = Geist({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Investrack — Suivi de patrimoine",
+  title: "Investrack - Suivi de patrimoine",
   description: "Suivez et projetez votre patrimoine financier",
 };
 
