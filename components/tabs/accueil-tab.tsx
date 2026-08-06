@@ -16,7 +16,6 @@ import {
   accountEntries, periodNetEur, periodNetPct,
 } from "@/constants";
 import { PeriodSelector } from "@/components/ui/period-selector";
-import { UnitToggle } from "@/components/ui/unit-toggle";
 import { CustomTooltip } from "@/components/ui/custom-tooltip";
 import { AccountAvatar } from "@/components/ui/account-avatar";
 import type { PatrimonyAccount, MonthlyTotal, PeriodKey, UnitKey } from "@/types";
@@ -225,35 +224,25 @@ export function AccueilTab({
           <div className="text-sm text-neutral-400">Patrimoine total</div>
           <div className="flex flex-col items-end gap-2">
             <PeriodSelector value={period} onChange={setPeriod} dark />
-            <div className="flex items-center gap-1.5">
-              <UnitToggle value={unit} onChange={setUnit} dark />
-              {/* Toggle Net / Brut */}
-              <div className="inline-flex rounded-full p-0.5 gap-0.5 bg-white/10">
-                {(["net", "brut"] as const).map((opt) => (
-                  <button
-                    key={opt}
-                    onClick={() => setGainMode(opt)}
-                    className={`px-2 py-1 rounded-full text-[10px] font-semibold transition cursor-pointer capitalize ${
-                      gainMode === opt ? "bg-white text-neutral-900" : "text-neutral-300"
-                    }`}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <button
+              onClick={() => setGainMode(gainMode === "net" ? "brut" : "net")}
+              className="px-2.5 py-1 rounded-full text-[10px] font-semibold capitalize bg-white/10 text-neutral-300 hover:bg-white/20 active:scale-95 transition cursor-pointer"
+            >
+              {gainMode}
+            </button>
           </div>
         </div>
         <div className="mt-1 text-4xl font-bold tracking-tight">{fmt(totalNow)}</div>
         <div className="mt-3 flex items-center gap-2">
-          <span
-            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+          <button
+            onClick={() => setUnit(unit === "pct" ? "eur" : "pct")}
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold active:scale-95 transition cursor-pointer ${
               evolPct >= 0 ? "bg-emerald-400/15 text-emerald-400" : "bg-red-400/15 text-red-400"
             }`}
           >
             {evolPct >= 0 ? <ArrowUpRight size={13} /> : <ArrowDownRight size={13} />}
             {unit === "pct" ? fmtPct(evolPct) : fmtDeltaEur(evolEur)}
-          </span>
+          </button>
           <span className="text-xs text-neutral-500">{PERIOD_LABELS[period]}</span>
           <span className="text-[10px] text-neutral-600 font-medium">
             {gainMode === "net" ? "· gain net" : "· gain brut"}
