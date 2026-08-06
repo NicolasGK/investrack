@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Check, X, Pencil, Trash2 } from "lucide-react";
+import { Plus, Minus, Check, X, Pencil, Trash2 } from "lucide-react";
 import {
   accountEntries, monthKey, monthKeyToOrdinal, ordinalToLabel,
   MONTH_FULL, CURRENT_YEAR, CURRENT_MONTH,
@@ -51,7 +51,6 @@ export function MonthlyEntries({ account, updateAccount }: MonthlyEntriesProps) 
   };
 
   const openAdd = () => {
-    // Propose le mois suivant la dernière saisie, sinon le mois courant
     if (filled.length) {
       const lastOrd = filled[filled.length - 1].i;
       const nextOrd = lastOrd + 1;
@@ -66,12 +65,97 @@ export function MonthlyEntries({ account, updateAccount }: MonthlyEntriesProps) 
     setAdding(true);
   };
 
+  const closeAdd = () => {
+    setAdding(false);
+    setAddingValue("");
+    setAddingDeposit("");
+  };
+
   const targetKey = monthKey(addYear, addMonth);
   const overwriting = account.history[targetKey] != null;
 
   return (
     <div>
-      <div className="text-xs font-semibold text-neutral-500 mb-2">Historique mensuel</div>
+      {/* En-tête avec bouton +/- */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-xs font-semibold text-neutral-500">Historique mensuel</div>
+        <button
+          onClick={adding ? closeAdd : openAdd}
+          title={adding ? "Fermer" : "Ajouter une saisie"}
+          className="h-6 w-6 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-500 hover:bg-neutral-200 active:scale-95 transition cursor-pointer"
+        >
+          {adding ? <Minus size={12} /> : <Plus size={12} />}
+        </button>
+      </div>
+
+      {/* Formulaire d'ajout — en haut quand ouvert */}
+      {adding && (
+        <div className="rounded-xl bg-neutral-50 px-3 py-2.5 space-y-2 mb-2">
+          <div className="flex items-center gap-2">
+            <select
+              value={addMonth}
+              onChange={(e) => setAddMonth(Number(e.target.value))}
+              className="flex-1 min-w-0 rounded-lg bg-white border border-neutral-200 px-2 py-1.5 text-xs font-medium text-neutral-700 outline-none"
+            >
+              {MONTH_FULL.map((m, idx) => (
+                <option key={m} value={idx + 1}>
+                  {m}
+                </option>
+              ))}
+            </select>
+            <select
+              value={addYear}
+              onChange={(e) => setAddYear(Number(e.target.value))}
+              className="flex-1 min-w-0 rounded-lg bg-white border border-neutral-200 px-2 py-1.5 text-xs font-medium text-neutral-700 outline-none"
+            >
+              {YEAR_OPTIONS.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              autoFocus
+              type="number"
+              placeholder="Valeur du compte"
+              value={addingValue}
+              onChange={(e) => setAddingValue(e.target.value)}
+              className="flex-1 min-w-0 rounded-lg bg-white border border-neutral-200 px-2.5 py-1.5 text-sm font-medium text-neutral-900 outline-none"
+            />
+            <input
+              type="number"
+              placeholder="Capital investi (€)"
+              value={addingDeposit}
+              onChange={(e) => setAddingDeposit(e.target.value)}
+              className="w-32 min-w-0 rounded-lg bg-white border border-neutral-200 px-2.5 py-1.5 text-sm font-medium text-neutral-900 outline-none"
+            />
+            <button
+              onClick={() => {
+                if (addingValue === "") return;
+                setValueAtKey(
+                  targetKey,
+                  Number(addingValue),
+                  addingDeposit === "" ? null : Number(addingDeposit)
+                );
+                closeAdd();
+              }}
+              className="text-emerald-600 shrink-0 cursor-pointer"
+            >
+              <Check size={18} />
+            </button>
+          </div>
+          <p className="text-[11px] text-neutral-400">
+            Capital investi : montant versé ce mois (ex : 100€ sur Trade Republic). Optionnel.
+          </p>
+          {overwriting && (
+            <p className="text-[11px] text-amber-600">
+              {ordinalToLabel(monthKeyToOrdinal(targetKey))} a déjà une valeur — elle sera remplacée.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Tableau des saisies */}
       <div className="rounded-xl bg-neutral-50 divide-y divide-neutral-100">
         {/* En-tête colonnes */}
         <div className="flex items-center gap-2 px-3 py-1.5">
@@ -87,8 +171,9 @@ export function MonthlyEntries({ account, updateAccount }: MonthlyEntriesProps) 
             Aucune saisie pour l&apos;instant
           </div>
         )}
-        {filled.map((e, idx) => {
-          const prev = idx > 0 ? filled[idx - 1] : null;
+        {[...filled].reverse().map((e) => {
+          const originalIdx = filled.findIndex((x) => x.key === e.key);
+          const prev = originalIdx > 0 ? filled[originalIdx - 1] : null;
           const netPct = prev != null
             ? periodNetPct(filled, deposits, { i: prev.i, v: prev.v }, { i: e.i, v: e.v })
             : null;
@@ -175,92 +260,6 @@ export function MonthlyEntries({ account, updateAccount }: MonthlyEntriesProps) 
             </div>
           );
         })}
-      </div>
-
-      <div className="mt-2.5">
-        {!adding ? (
-          <button
-            onClick={openAdd}
-            className="w-full flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-neutral-300 text-neutral-500 text-xs font-semibold py-2.5 cursor-pointer"
-          >
-            <Plus size={14} /> Ajouter une saisie (mois passé ou récent)
-          </button>
-        ) : (
-          <div className="rounded-xl bg-neutral-50 px-3 py-2.5 space-y-2">
-            <div className="flex items-center gap-2">
-              <select
-                value={addMonth}
-                onChange={(e) => setAddMonth(Number(e.target.value))}
-                className="flex-1 min-w-0 rounded-lg bg-white border border-neutral-200 px-2 py-1.5 text-xs font-medium text-neutral-700 outline-none"
-              >
-                {MONTH_FULL.map((m, idx) => (
-                  <option key={m} value={idx + 1}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={addYear}
-                onChange={(e) => setAddYear(Number(e.target.value))}
-                className="flex-1 min-w-0 rounded-lg bg-white border border-neutral-200 px-2 py-1.5 text-xs font-medium text-neutral-700 outline-none"
-              >
-                {YEAR_OPTIONS.map((y) => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                placeholder="Valeur du compte"
-                value={addingValue}
-                onChange={(e) => setAddingValue(e.target.value)}
-                className="flex-1 min-w-0 rounded-lg bg-white border border-neutral-200 px-2.5 py-1.5 text-sm font-medium text-neutral-900 outline-none"
-              />
-              <input
-                type="number"
-                placeholder="Capital investi (€)"
-                value={addingDeposit}
-                onChange={(e) => setAddingDeposit(e.target.value)}
-                className="w-32 min-w-0 rounded-lg bg-white border border-neutral-200 px-2.5 py-1.5 text-sm font-medium text-neutral-900 outline-none"
-              />
-              <button
-                onClick={() => {
-                  if (addingValue === "") return;
-                  setValueAtKey(
-                    targetKey,
-                    Number(addingValue),
-                    addingDeposit === "" ? null : Number(addingDeposit)
-                  );
-                  setAdding(false);
-                  setAddingValue("");
-                  setAddingDeposit("");
-                }}
-                className="text-emerald-600 shrink-0 cursor-pointer"
-              >
-                <Check size={18} />
-              </button>
-              <button
-                onClick={() => {
-                  setAdding(false);
-                  setAddingValue("");
-                  setAddingDeposit("");
-                }}
-                className="text-neutral-400 shrink-0 cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <p className="text-[11px] text-neutral-400">
-              Capital investi : montant versé ce mois (ex : 100€ sur Trade Republic). Optionnel.
-            </p>
-            {overwriting && (
-              <p className="text-[11px] text-amber-600">
-                {ordinalToLabel(monthKeyToOrdinal(targetKey))} a déjà une valeur — elle sera remplacée.
-              </p>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );

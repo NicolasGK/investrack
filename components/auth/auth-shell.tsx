@@ -1,4 +1,4 @@
-import { TrendingUp } from "lucide-react";
+import Image from "next/image";
 
 interface AuthShellProps {
   title: string;
@@ -14,10 +14,14 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <div className="relative mb-3">
-            <div className="h-16 w-16 rounded-2xl bg-neutral-900 flex items-center justify-center shadow-lg shadow-neutral-900/20">
-              <TrendingUp size={30} className="text-emerald-400" />
-            </div>
-            <div className="absolute -inset-1 rounded-2xl bg-emerald-400/10 -z-10 blur-sm" />
+            <Image
+              src="/logo.png"
+              alt="Investrack"
+              width={64}
+              height={64}
+              className="h-16 w-16"
+              priority
+            />
           </div>
           <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">Investrack</h1>
           <p className="text-sm text-neutral-500 mt-1">Suivez votre patrimoine</p>

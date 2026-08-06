@@ -8,16 +8,20 @@ import {
   ArrowUpRight, ArrowDownRight, Plus, ChevronRight, Sparkles, LogOut,
   TrendingUp, Wallet, BarChart3,
 } from "lucide-react";
+import Image from "next/image";
 import { fmt, fmtPct, fmtDeltaEur } from "@/lib/utils";
 import {
-  currentValue, monthlyPct, CATEGORY_COLORS, FALLBACK_COLOR, HORIZONS,
+  currentValue, CATEGORY_COLORS, FALLBACK_COLOR, HORIZONS,
   periodWindow, ordinalToLabel, PERIOD_LABELS,
+  accountEntries, periodNetEur, periodNetPct,
 } from "@/constants";
 import { PeriodSelector } from "@/components/ui/period-selector";
 import { UnitToggle } from "@/components/ui/unit-toggle";
 import { CustomTooltip } from "@/components/ui/custom-tooltip";
 import { AccountAvatar } from "@/components/ui/account-avatar";
 import type { PatrimonyAccount, MonthlyTotal, PeriodKey, UnitKey } from "@/types";
+
+type GainMode = "net" | "brut";
 
 interface AccueilTabProps {
   accounts: PatrimonyAccount[];
@@ -42,20 +46,34 @@ export function AccueilTab({
 }: AccueilTabProps) {
   const [period, setPeriod] = useState<PeriodKey>("1Y");
   const [unit, setUnit] = useState<UnitKey>("pct");
+  const [gainMode, setGainMode] = useState<GainMode>("net");
 
   const totalNow = monthlyTotals.length ? monthlyTotals[monthlyTotals.length - 1].total : 0;
 
   const totalsPoints = monthlyTotals.map((m) => ({ i: m.i, v: m.total }));
   const win = periodWindow(totalsPoints, period);
-  // Déduire tous les apports versés pendant la période pour obtenir la perf nette
   const depositsInPeriod = monthlyTotals
-    .filter(
-      (m) =>
-        m.i > (win.baseline?.i ?? 0) && m.i <= (win.current?.i ?? 0)
-    )
+    .filter((m) => m.i > (win.baseline?.i ?? 0) && m.i <= (win.current?.i ?? 0))
     .reduce((s, m) => s + m.totalDeposits, 0);
-  const evolEur = (win.current?.v ?? 0) - (win.baseline?.v ?? 0) - depositsInPeriod;
+  const rawEur = (win.current?.v ?? 0) - (win.baseline?.v ?? 0);
+  const evolEur = gainMode === "net" ? rawEur - depositsInPeriod : rawEur;
   const evolPct = win.baseline?.v ? (evolEur / win.baseline.v) * 100 : 0;
+
+  // Perf par compte sur la période sélectionnée
+  const accountPeriodPerf = (a: PatrimonyAccount) => {
+    const entries = accountEntries(a);
+    const pts = entries.map((e) => ({ i: e.i, v: e.v }));
+    const w = periodWindow(pts, period);
+    if (gainMode === "net") {
+      const eur = periodNetEur(entries, a.deposits || {}, w.baseline, w.current);
+      const pct = w.baseline?.v ? (eur / w.baseline.v) * 100 : 0;
+      return { eur, pct };
+    } else {
+      const eur = (w.current?.v ?? 0) - (w.baseline?.v ?? 0);
+      const pct = w.baseline?.v ? (eur / w.baseline.v) * 100 : 0;
+      return { eur, pct };
+    }
+  };
   const chartData = win.points.map((p) => ({
     label: ordinalToLabel(p.i),
     total: Math.round(p.v),
@@ -95,9 +113,13 @@ export function AccueilTab({
         {/* Hero card d'onboarding */}
         <div className="rounded-3xl bg-neutral-900 p-6 text-white">
           <div className="flex items-center gap-3 mb-4">
-            <div className="h-11 w-11 rounded-2xl bg-emerald-400/15 flex items-center justify-center shrink-0">
-              <TrendingUp size={22} className="text-emerald-400" />
-            </div>
+            <Image
+              src="/logo.png"
+              alt="Investrack"
+              width={44}
+              height={44}
+              className="h-11 w-11 shrink-0"
+            />
             <div>
               <div className="font-bold text-white text-base leading-tight">
                 Bienvenue sur Investrack
@@ -203,7 +225,23 @@ export function AccueilTab({
           <div className="text-sm text-neutral-400">Patrimoine total</div>
           <div className="flex flex-col items-end gap-2">
             <PeriodSelector value={period} onChange={setPeriod} dark />
-            <UnitToggle value={unit} onChange={setUnit} dark />
+            <div className="flex items-center gap-1.5">
+              <UnitToggle value={unit} onChange={setUnit} dark />
+              {/* Toggle Net / Brut */}
+              <div className="inline-flex rounded-full p-0.5 gap-0.5 bg-white/10">
+                {(["net", "brut"] as const).map((opt) => (
+                  <button
+                    key={opt}
+                    onClick={() => setGainMode(opt)}
+                    className={`px-2 py-1 rounded-full text-[10px] font-semibold transition cursor-pointer capitalize ${
+                      gainMode === opt ? "bg-white text-neutral-900" : "text-neutral-300"
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
         <div className="mt-1 text-4xl font-bold tracking-tight">{fmt(totalNow)}</div>
@@ -217,6 +255,9 @@ export function AccueilTab({
             {unit === "pct" ? fmtPct(evolPct) : fmtDeltaEur(evolEur)}
           </span>
           <span className="text-xs text-neutral-500">{PERIOD_LABELS[period]}</span>
+          <span className="text-[10px] text-neutral-600 font-medium">
+            {gainMode === "net" ? "· gain net" : "· gain brut"}
+          </span>
         </div>
 
         <div className="mt-5 h-32 -mx-2">
@@ -252,6 +293,51 @@ export function AccueilTab({
         </div>
       </div>
 
+      {/* Liste des comptes — cliquables */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-lg font-bold text-neutral-900">Comptes</div>
+          <button
+            onClick={onAdd}
+            className="text-sm font-medium text-neutral-500 flex items-center gap-0.5 cursor-pointer"
+          >
+            Ajouter <ChevronRight size={15} />
+          </button>
+        </div>
+        <div className="rounded-2xl bg-white overflow-hidden divide-y divide-neutral-100">
+          {accounts.map((a, i) => {
+            const cur = currentValue(a);
+            const perf = accountPeriodPerf(a);
+            const perfValue = unit === "pct" ? perf.pct : perf.eur;
+            const isPositive = perfValue >= 0;
+            return (
+              <button
+                key={a.id}
+                onClick={() => onOpenAccount(a.id)}
+                className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-neutral-50 transition text-left cursor-pointer"
+              >
+                <AccountAvatar account={a} index={i} />
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-neutral-900 truncate">{a.name}</div>
+                  <div className="text-xs text-neutral-400">{a.category}</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-semibold text-neutral-900">{fmt(cur)}</div>
+                  <div
+                    className={`text-xs font-semibold ${
+                      isPositive ? "text-emerald-600" : "text-red-500"
+                    }`}
+                  >
+                    {unit === "pct" ? fmtPct(perf.pct) : fmtDeltaEur(perf.eur)}
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-neutral-300 shrink-0" />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Répartition par catégorie */}
       <div className="rounded-2xl bg-white p-4">
         <div className="text-sm font-semibold text-neutral-900 mb-3">
@@ -282,49 +368,6 @@ export function AccueilTab({
                   </span>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Liste des comptes — cliquables */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <div className="text-lg font-bold text-neutral-900">Comptes</div>
-          <button
-            onClick={onAdd}
-            className="text-sm font-medium text-neutral-500 flex items-center gap-0.5 cursor-pointer"
-          >
-            Ajouter <ChevronRight size={15} />
-          </button>
-        </div>
-        <div className="rounded-2xl bg-white overflow-hidden divide-y divide-neutral-100">
-          {accounts.map((a, i) => {
-            const cur = currentValue(a);
-            const pct = monthlyPct(a);
-            return (
-              <button
-                key={a.id}
-                onClick={() => onOpenAccount(a.id)}
-                className="w-full flex items-center gap-3 px-4 py-3.5 active:bg-neutral-50 transition text-left cursor-pointer"
-              >
-                <AccountAvatar account={a} index={i} />
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-neutral-900 truncate">{a.name}</div>
-                  <div className="text-xs text-neutral-400">{a.category}</div>
-                </div>
-                <div className="text-right">
-                  <div className="font-semibold text-neutral-900">{fmt(cur)}</div>
-                  <div
-                    className={`text-xs font-semibold ${
-                      pct >= 0 ? "text-emerald-600" : "text-red-500"
-                    }`}
-                  >
-                    {fmtPct(pct)}
-                  </div>
-                </div>
-                <ChevronRight size={16} className="text-neutral-300 shrink-0" />
-              </button>
             );
           })}
         </div>

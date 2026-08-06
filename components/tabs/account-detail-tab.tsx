@@ -20,6 +20,8 @@ import { AccountAvatar } from "@/components/ui/account-avatar";
 import { MonthlyEntries } from "@/components/accounts/monthly-entries";
 import type { PatrimonyAccount, PeriodKey, UnitKey } from "@/types";
 
+type GainMode = "net" | "brut";
+
 interface AccountDetailTabProps {
   account: PatrimonyAccount;
   updateAccount: (id: string, patch: Partial<PatrimonyAccount>) => void;
@@ -29,6 +31,7 @@ interface AccountDetailTabProps {
 export function AccountDetailTab({ account, updateAccount, onBack }: AccountDetailTabProps) {
   const [period, setPeriod] = useState<PeriodKey>("1Y");
   const [unit, setUnit] = useState<UnitKey>("pct");
+  const [gainMode, setGainMode] = useState<GainMode>("net");
 
   const accent = getAccountAccent(account);
   const chartAccent = getChartAccent(accent);
@@ -43,8 +46,12 @@ export function AccountDetailTab({ account, updateAccount, onBack }: AccountDeta
   }));
 
   const cur = currentValue(account);
-  const interestPct = periodNetPct(entries, deposits, win.baseline, win.current);
-  const interestEur = periodNetEur(entries, deposits, win.baseline, win.current);
+  const interestEurNet = periodNetEur(entries, deposits, win.baseline, win.current);
+  const interestPctNet = periodNetPct(entries, deposits, win.baseline, win.current);
+  const interestEurBrut = (win.current?.v ?? 0) - (win.baseline?.v ?? 0);
+  const interestPctBrut = win.baseline?.v ? (interestEurBrut / win.baseline.v) * 100 : 0;
+  const interestPct = gainMode === "net" ? interestPctNet : interestPctBrut;
+  const interestEur = gainMode === "net" ? interestEurNet : interestEurBrut;
   const monthPct = monthlyPct(account);
 
   return (
@@ -81,7 +88,22 @@ export function AccountDetailTab({ account, updateAccount, onBack }: AccountDeta
             </div>
             <div className="flex flex-col items-end gap-2">
               <PeriodSelector value={period} onChange={setPeriod} dark />
-              <UnitToggle value={unit} onChange={setUnit} dark />
+              <div className="flex items-center gap-1.5">
+                <UnitToggle value={unit} onChange={setUnit} dark />
+                <div className="inline-flex rounded-full p-0.5 gap-0.5 bg-white/10">
+                  {(["net", "brut"] as const).map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => setGainMode(opt)}
+                      className={`px-2 py-1 rounded-full text-[10px] font-semibold transition cursor-pointer capitalize ${
+                        gainMode === opt ? "bg-white text-neutral-900" : "text-neutral-300"
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -103,6 +125,9 @@ export function AccountDetailTab({ account, updateAccount, onBack }: AccountDeta
               {unit === "pct" ? fmtPct(interestPct) : fmtDeltaEur(interestEur)}
             </span>
             <span className="text-xs text-neutral-500">{PERIOD_LABELS[period]}</span>
+            <span className="text-[10px] text-neutral-600 font-medium">
+              {gainMode === "net" ? "· gain net" : "· gain brut"}
+            </span>
           </div>
 
           <div className="mt-5 h-40 -mx-2">
@@ -139,7 +164,9 @@ export function AccountDetailTab({ account, updateAccount, onBack }: AccountDeta
       <div className="grid grid-cols-2 gap-2.5">
         <div className="rounded-2xl bg-white p-3.5">
           <div className="flex items-center justify-between">
-            <div className="text-xs text-neutral-400 font-medium">Intérêts ({period})</div>
+            <div className="text-xs text-neutral-400 font-medium">
+              Gain {gainMode} ({period})
+            </div>
             <UnitToggle value={unit} onChange={setUnit} />
           </div>
           <div
@@ -150,7 +177,7 @@ export function AccountDetailTab({ account, updateAccount, onBack }: AccountDeta
             {unit === "pct" ? fmtPct(interestPct) : fmtDeltaEur(interestEur)}
           </div>
           <div className="mt-0.5 text-[11px] text-neutral-400 leading-tight">
-            gain net (hors apports) ÷ base × 100
+            {gainMode === "net" ? "hors apports ÷ base × 100" : "variation totale ÷ base × 100"}
           </div>
         </div>
         <div className="rounded-2xl bg-white p-3.5">
