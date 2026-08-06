@@ -129,7 +129,7 @@ export function AccueilTab({
             </div>
           </div>
           <p className="text-sm text-neutral-300 leading-relaxed mb-5">
-            Ajoutez vos comptes et saisissez vos soldes — le graphique se construit automatiquement
+            Ajoutez vos comptes et saisissez vos soldes - le graphique se construit automatiquement
             au fil du temps.
           </p>
           <button
@@ -197,7 +197,7 @@ export function AccueilTab({
       <div className="flex items-center justify-between pt-2">
         <div>
           <div className="text-sm text-neutral-500">Bonjour</div>
-          <div className="text-xl font-bold text-neutral-900 capitalize">{userName}</div>
+          <div className="text-xl font-bold text-neutral-900 capitalize">{userName} 👋</div>
         </div>
         <div className="flex items-center gap-2">
           {onSignOut && (
@@ -379,7 +379,7 @@ export function AccueilTab({
           ))}
         </div>
         <p className="mt-2.5 text-xs text-neutral-400 leading-relaxed">
-          Basé sur vos versements mensuels et taux par compte — modifiables dans l&apos;onglet
+          Basé sur vos versements mensuels et taux par compte - modifiables dans l&apos;onglet
           Projection.
         </p>
       </div>

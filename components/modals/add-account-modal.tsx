@@ -41,7 +41,7 @@ function LogoGrid({ search, onSelect }: LogoGridProps) {
       </button>
       {filtered.length === 0 && (
         <div className="col-span-4 text-center text-xs text-neutral-400 py-2">
-          Aucun résultat — choisissez &quot;Autre&quot; pour un logo générique.
+          Aucun résultat - choisissez &quot;Autre&quot; pour un logo générique.
         </div>
       )}
     </div>

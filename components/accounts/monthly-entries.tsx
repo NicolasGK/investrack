@@ -149,7 +149,7 @@ export function MonthlyEntries({ account, updateAccount }: MonthlyEntriesProps) 
           </p>
           {overwriting && (
             <p className="text-[11px] text-amber-600">
-              {ordinalToLabel(monthKeyToOrdinal(targetKey))} a déjà une valeur — elle sera remplacée.
+              {ordinalToLabel(monthKeyToOrdinal(targetKey))} a déjà une valeur - elle sera remplacée.
             </p>
           )}
         </div>
